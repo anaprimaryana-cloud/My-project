@@ -1,0 +1,188 @@
+const state = {
+  questions: [],
+  teams: [],
+  students: [],
+  currentQuestionIndex: -1,
+  timerId: null,
+  remainingSeconds: 30,
+};
+
+const questionForm = document.getElementById("question-form");
+const questionText = document.getElementById("question-text");
+const questionAnswer = document.getElementById("question-answer");
+const questionList = document.getElementById("question-list");
+
+const teamForm = document.getElementById("team-form");
+const teamName = document.getElementById("team-name");
+const teamList = document.getElementById("team-list");
+const leaderboard = document.getElementById("leaderboard");
+const scoreTeam = document.getElementById("score-team");
+const scorePoints = document.getElementById("score-points");
+
+const startGameBtn = document.getElementById("start-game");
+const nextQuestionBtn = document.getElementById("next-question");
+const showAnswerBtn = document.getElementById("show-answer");
+const resetGameBtn = document.getElementById("reset-game");
+const liveQuestion = document.getElementById("live-question");
+const liveAnswer = document.getElementById("live-answer");
+
+const studentForm = document.getElementById("student-form");
+const studentName = document.getElementById("student-name");
+const pickStudentBtn = document.getElementById("pick-student");
+const pickedStudent = document.getElementById("picked-student");
+
+const timerInput = document.getElementById("timer-input");
+const startTimerBtn = document.getElementById("start-timer");
+const stopTimerBtn = document.getElementById("stop-timer");
+const timerDisplay = document.getElementById("timer-display");
+
+const addPointsBtn = document.getElementById("add-points");
+const removePointsBtn = document.getElementById("remove-points");
+
+function renderQuestions() {
+  questionList.innerHTML = "";
+  state.questions.forEach((question, index) => {
+    const item = document.createElement("li");
+    item.textContent = `${index + 1}. ${question.prompt}`;
+    questionList.appendChild(item);
+  });
+}
+
+function renderTeams() {
+  teamList.innerHTML = "";
+  leaderboard.innerHTML = "";
+  scoreTeam.innerHTML = '<option value="">Select team</option>';
+
+  const sortedTeams = [...state.teams].sort((a, b) => b.score - a.score);
+
+  sortedTeams.forEach((team) => {
+    const listItem = document.createElement("li");
+    listItem.textContent = team.name;
+    const scoreBadge = document.createElement("strong");
+    scoreBadge.textContent = `${team.score} pts`;
+    listItem.appendChild(scoreBadge);
+    teamList.appendChild(listItem);
+
+    const leadItem = listItem.cloneNode(true);
+    leaderboard.appendChild(leadItem);
+
+    const option = document.createElement("option");
+    option.value = team.name;
+    option.textContent = team.name;
+    scoreTeam.appendChild(option);
+  });
+}
+
+function updateCurrentQuestion() {
+  const current = state.questions[state.currentQuestionIndex];
+  if (!current) {
+    liveQuestion.textContent = "No question available.";
+    liveAnswer.textContent = "";
+    liveAnswer.classList.add("hidden");
+    return;
+  }
+
+  liveQuestion.textContent = current.prompt;
+  liveAnswer.textContent = `Answer: ${current.answer}`;
+  liveAnswer.classList.add("hidden");
+}
+
+function startGame() {
+  if (!state.questions.length) {
+    liveQuestion.textContent = "Please add at least one question.";
+    return;
+  }
+
+  state.currentQuestionIndex = 0;
+  updateCurrentQuestion();
+  nextQuestionBtn.disabled = false;
+  showAnswerBtn.disabled = false;
+}
+
+function nextQuestion() {
+  if (!state.questions.length) return;
+  state.currentQuestionIndex = (state.currentQuestionIndex + 1) % state.questions.length;
+  updateCurrentQuestion();
+}
+
+function adjustScore(direction) {
+  const team = state.teams.find((entry) => entry.name === scoreTeam.value);
+  const delta = Number.parseInt(scorePoints.value, 10) || 0;
+  if (!team || delta <= 0) return;
+
+  team.score = Math.max(0, team.score + direction * delta);
+  renderTeams();
+  scoreTeam.value = team.name;
+}
+
+function tickTimer() {
+  timerDisplay.textContent = `${state.remainingSeconds}s`;
+  if (state.remainingSeconds <= 0) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+    timerDisplay.textContent = "⏰ Time!";
+    return;
+  }
+  state.remainingSeconds -= 1;
+}
+
+questionForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.questions.push({
+    prompt: questionText.value.trim(),
+    answer: questionAnswer.value.trim(),
+  });
+  questionForm.reset();
+  renderQuestions();
+});
+
+teamForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = teamName.value.trim();
+  if (!name || state.teams.some((team) => team.name === name)) return;
+  state.teams.push({ name, score: 0 });
+  teamForm.reset();
+  renderTeams();
+});
+
+studentForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = studentName.value.trim();
+  if (!name) return;
+  state.students.push(name);
+  studentForm.reset();
+});
+
+pickStudentBtn.addEventListener("click", () => {
+  if (!state.students.length) {
+    pickedStudent.textContent = "Add student names first.";
+    return;
+  }
+  const randomIndex = Math.floor(Math.random() * state.students.length);
+  pickedStudent.textContent = `🎉 ${state.students[randomIndex]}`;
+});
+
+startGameBtn.addEventListener("click", startGame);
+nextQuestionBtn.addEventListener("click", nextQuestion);
+showAnswerBtn.addEventListener("click", () => liveAnswer.classList.toggle("hidden"));
+resetGameBtn.addEventListener("click", () => window.location.reload());
+
+addPointsBtn.addEventListener("click", () => adjustScore(1));
+removePointsBtn.addEventListener("click", () => adjustScore(-1));
+
+startTimerBtn.addEventListener("click", () => {
+  const value = Number.parseInt(timerInput.value, 10);
+  if (!value || value < 1) return;
+  clearInterval(state.timerId);
+  state.remainingSeconds = value;
+  tickTimer();
+  state.timerId = setInterval(tickTimer, 1000);
+});
+
+stopTimerBtn.addEventListener("click", () => {
+  clearInterval(state.timerId);
+  state.timerId = null;
+});
+
+renderQuestions();
+renderTeams();
